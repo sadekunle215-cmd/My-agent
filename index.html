@@ -507,6 +507,8 @@
     border-radius: 14px;
     transition: border-color 0.2s, box-shadow 0.2s;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   .input-box:focus-within {
@@ -523,11 +525,12 @@
     font-family: 'DM Sans', sans-serif;
     font-size: 14px;
     line-height: 1.6;
-    padding: 14px 16px 0;
+    padding: 14px 16px 8px;
     resize: none;
     min-height: 52px;
-    max-height: 200px;
+    max-height: 140px;
     overflow-y: auto;
+    flex-shrink: 0;
   }
   #user-input::placeholder { color: var(--text3); }
   #user-input::-webkit-scrollbar { width: 3px; }
@@ -536,8 +539,10 @@
   .input-actions {
     display: flex;
     align-items: center;
-    padding: 8px 12px;
+    padding: 6px 10px 8px;
     gap: 8px;
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
   }
 
   .input-btn {
@@ -819,7 +824,7 @@
     .message-wrap { padding: 0 12px; }
     #input-area { padding: 8px 10px env(safe-area-inset-bottom, 10px); }
     .input-box { border-radius: 10px; }
-    #user-input { padding: 10px 12px 0; font-size: 15px; }
+    #user-input { padding: 10px 12px 6px; font-size: 16px; max-height: 100px; }
     .topbar-tools { gap: 4px; }
     .tool-pill { padding: 4px 8px; font-size: 10px; }
     #empty-state { padding: 20px 16px; gap: 20px; }
