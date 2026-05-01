@@ -35,7 +35,7 @@
     font-family: 'DM Sans', sans-serif;
     background: var(--bg);
     color: var(--text);
-    height: 100vh;
+    height: 100dvh;
     display: flex;
     overflow: hidden;
   }
@@ -490,13 +490,15 @@
   /* INPUT AREA */
   #input-area {
     border-top: 1px solid var(--border);
-    padding: 16px 24px 20px;
+    padding: 10px 12px 12px;
     background: var(--surface);
+    flex-shrink: 0;
   }
 
   .input-wrap-outer {
     max-width: 780px;
     margin: 0 auto;
+    width: 100%;
   }
 
   .input-box {
@@ -794,6 +796,16 @@
     #sidebar { display: none; }
     #artifact-panel.open { width: 100%; position: absolute; inset: 0; z-index: 10; }
     .starter-grid { grid-template-columns: 1fr; }
+    #messages { padding: 16px 0; }
+    .message-wrap { padding: 0 12px; }
+    #input-area { padding: 8px 10px env(safe-area-inset-bottom, 10px); }
+    .input-box { border-radius: 10px; }
+    #user-input { padding: 10px 12px 0; font-size: 15px; }
+    .topbar-tools { gap: 4px; }
+    .tool-pill { padding: 4px 8px; font-size: 10px; }
+    #empty-state { padding: 20px 16px; gap: 20px; }
+    .empty-logo { font-size: 32px; }
+    .starter-card { padding: 12px; }
   }
 </style>
 </head>
