@@ -631,9 +631,13 @@
     border-radius: var(--radius-sm);
     color: var(--text3);
     cursor: pointer;
-    padding: 4px 8px;
-    font-size: 13px;
+    padding: 6px 12px;
+    font-size: 15px;
     transition: all 0.15s;
+    min-width: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   .artifact-close-btn:hover { color: var(--red); border-color: var(--red); }
 
@@ -794,7 +798,22 @@
   /* RESPONSIVE */
   @media (max-width: 700px) {
     #sidebar { display: none; }
-    #artifact-panel.open { width: 100%; position: absolute; inset: 0; z-index: 10; }
+
+    /* Artifact: full screen takeover on mobile */
+    #artifact-panel.open {
+      width: 100%;
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+    #artifact-frame { flex: 1; height: 0; }
+    #artifact-source { flex: 1; height: 0; }
+    .artifact-header { height: 48px; padding: 0 12px; }
+    .artifact-title { font-size: 11px; }
+
     .starter-grid { grid-template-columns: 1fr; }
     #messages { padding: 16px 0; }
     .message-wrap { padding: 0 12px; }
@@ -886,7 +905,7 @@
             <textarea id="user-input" placeholder="Ask anything..." rows="1"></textarea>
             <div class="input-actions">
               <button class="input-btn" onclick="document.getElementById('file-input').click()" title="Attach file">📎</button>
-              <input type="file" id="file-input" accept="image/*,.pdf" multiple onchange="handleFileAttach(event)">
+              <input type="file" id="file-input" accept="image/*,.pdf,.html,.htm,.js,.jsx,.ts,.tsx,.css,.py,.json,.txt,.md,.csv,.xml,.yaml,.yml,.sh,.sql" multiple onchange="handleFileAttach(event)">
               <button class="input-btn" onclick="clearHistory()" title="Clear chat" style="font-size:12px;">🗑</button>
               <button id="send-btn" onclick="sendMessage()">
                 Send <span style="font-size:16px;line-height:1;">↑</span>
@@ -905,6 +924,7 @@
           <button class="artifact-tab active" id="tab-preview" onclick="switchArtifactTab('preview')">Preview</button>
           <button class="artifact-tab" id="tab-source" onclick="switchArtifactTab('source')">Source</button>
         </div>
+        <button class="artifact-tab" onclick="downloadArtifact()" title="Download" style="border-color:var(--border);color:var(--text3)">⬇</button>
         <button class="artifact-close-btn" onclick="closeArtifact()">✕</button>
       </div>
       <iframe id="artifact-frame" class="active" sandbox="allow-scripts allow-forms allow-modals"></iframe>
@@ -1063,6 +1083,9 @@ async function sendMessage() {
         userContent.push({ type: 'image', source: { type: 'base64', media_type: a.mediaType, data: a.data } });
       } else if (a.type === 'pdf') {
         userContent.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: a.data } });
+      } else if (a.type === 'text') {
+        // Send code/text files as a text block with filename header
+        userContent.push({ type: 'text', text: `📄 File: ${a.name}\n\`\`\`\n${a.text}\n\`\`\`` });
       }
     });
     if (text) userContent.push({ type: 'text', text });
@@ -1097,20 +1120,38 @@ async function sendMessage() {
     const model = document.getElementById('model-select').value;
     const systemPrompt = `You are MIND, a powerful personal AI assistant. You are helpful, precise, and technically excellent.
 
-When the user asks you to build something (a webpage, component, app, tool, visualization), create complete, working code wrapped in a special artifact block like this:
-<artifact type="html" title="Title here">
+## ARTIFACTS
+Use artifact blocks for ALL code output — new builds, edits, fixes, or rewrites.
+
+For HTML/CSS/JS (websites, tools, pages):
+<artifact type="html" title="descriptive title">
 <!DOCTYPE html>
-...complete code...
+...COMPLETE code, all CSS+JS inline...
 </artifact>
 
-Or for React:
-<artifact type="react" title="Title here">
-...JSX code...
+For React components:
+<artifact type="react" title="descriptive title">
+...complete JSX, no imports needed for React/useState...
 </artifact>
 
-Always produce COMPLETE, self-contained artifacts that work immediately. For HTML artifacts include all CSS and JS inline. Make them beautiful and functional.
+For other code (Python, JS scripts, etc.) — wrap in a styled HTML viewer:
+<artifact type="html" title="filename.py">
+<!DOCTYPE html><html><body><pre style="background:#1e1e2e;color:#cdd6f4;padding:20px;margin:0;font-family:monospace;white-space:pre-wrap;font-size:13px">THE CODE HERE</pre></body></html>
+</artifact>
 
-For regular responses, use markdown formatting. Be concise but complete.`;
+## FILE EDITING RULES
+When the user uploads a file (HTML, JS, Python, etc.) and asks to edit, fix, or improve it:
+- Output the COMPLETE updated file in an artifact — never just the changed parts.
+- Preserve all existing functionality unless asked to remove something.
+- Title the artifact with the original filename.
+- After the artifact, briefly list what you changed.
+
+## GENERAL RULES
+- ALWAYS use artifacts for any code — no exceptions, no inline code blocks for files.
+- Artifacts must be 100% complete and immediately runnable — no placeholders or "// rest of code here".
+- For HTML artifacts: all CSS and JS must be inline in a single file.
+- For regular text answers: use markdown. Be concise but complete.
+\`;
 
     // Build API messages (convert back to API format, strip artifacts from stored)
     const apiMessages = msgs.map(m => ({
@@ -1375,6 +1416,18 @@ function closeArtifact() {
   currentArtifact = null;
 }
 
+function downloadArtifact() {
+  if (!currentArtifact) return;
+  const ext = currentArtifact.type === 'react' ? 'jsx' : 'html';
+  const filename = currentArtifact.title.replace(/[^a-z0-9_\-\.]/gi, '_') + '.' + ext;
+  const blob = new Blob([currentArtifact.code], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 function switchArtifactTab(tab) {
   const frame = document.getElementById('artifact-frame');
   const source = document.getElementById('artifact-source');
@@ -1393,20 +1446,36 @@ function escapeHTML(str) {
 // ============================================
 function handleFileAttach(event) {
   const files = Array.from(event.target.files);
+  const TEXT_EXTS = /\.(html?|jsx?|tsx?|css|py|json|txt|md|csv|xml|ya?ml|sh|sql|env|toml|rs|go|php|rb|swift|kt|dart)$/i;
   files.forEach(file => {
+    const isImage = file.type.startsWith('image/');
+    const isPdf = file.type === 'application/pdf';
+    const isText = TEXT_EXTS.test(file.name) || file.type.startsWith('text/');
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const data = e.target.result.split(',')[1];
-      const isImage = file.type.startsWith('image/');
-      pendingAttachments.push({
-        type: isImage ? 'image' : 'pdf',
-        data,
-        name: file.name,
-        mediaType: file.type
-      });
-      renderAttachmentPreview();
-    };
-    reader.readAsDataURL(file);
+    if (isImage || isPdf) {
+      reader.onload = (e) => {
+        pendingAttachments.push({
+          type: isImage ? 'image' : 'pdf',
+          data: e.target.result.split(',')[1],
+          name: file.name,
+          mediaType: file.type
+        });
+        renderAttachmentPreview();
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // Read as plain text (code files, txt, etc.)
+      reader.onload = (e) => {
+        pendingAttachments.push({
+          type: 'text',
+          text: e.target.result,
+          name: file.name,
+          mediaType: file.type || 'text/plain'
+        });
+        renderAttachmentPreview();
+      };
+      reader.readAsText(file);
+    }
   });
   event.target.value = '';
 }
@@ -1425,6 +1494,9 @@ function renderAttachmentPreview() {
     thumb.className = 'attachment-thumb';
     if (a.type === 'image') {
       thumb.innerHTML = `<img src="data:${a.mediaType};base64,${a.data}" alt="${a.name}">`;
+    } else if (a.type === 'text') {
+      const ext = a.name.split('.').pop().toUpperCase();
+      thumb.innerHTML = `<div class="pdf-badge"><span>📝</span><span style="font-size:9px;text-align:center">${ext}: ${a.name.slice(0,10)}</span></div>`;
     } else {
       thumb.innerHTML = `<div class="pdf-badge"><span>📄</span><span style="font-size:9px;text-align:center">${a.name.slice(0,10)}</span></div>`;
     }
