@@ -1134,12 +1134,12 @@ For regular responses, use markdown formatting. Be concise but complete.`;
       })
     });
 
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error?.message || 'API error');
-    }
-
     const data = await response.json();
+
+    if (!response.ok) {
+      const msg = data?.error?.message || data?.error || JSON.stringify(data);
+      throw new Error(`API ${response.status}: ${msg}`);
+    }
 
     // Extract full text from content blocks
     let fullText = '';
