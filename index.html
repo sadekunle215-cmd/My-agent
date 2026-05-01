@@ -900,13 +900,11 @@
         </div>
       </div>
 
-      <!-- ATTACHMENT PREVIEW -->
-      <div class="attachment-preview" id="attachment-preview" style="display:none;padding:0 24px 8px;"></div>
-
       <!-- INPUT AREA -->
       <div id="input-area">
         <div class="input-wrap-outer">
           <div class="input-box">
+            <div class="attachment-preview" id="attachment-preview" style="display:none;padding:8px 12px 0;flex-wrap:wrap;gap:6px;"></div>
             <textarea id="user-input" placeholder="Ask anything..." rows="1"></textarea>
             <div class="input-actions">
               <button class="input-btn" onclick="document.getElementById('file-input').click()" title="Attach file">📎</button>
@@ -1079,7 +1077,7 @@ async function sendMessage() {
 
   const msgs = conversations[currentChatId].messages;
 
-  // Build user content
+  // Build user content for API
   let userContent;
   if (pendingAttachments.length > 0) {
     userContent = [];
@@ -1089,16 +1087,19 @@ async function sendMessage() {
       } else if (a.type === 'pdf') {
         userContent.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: a.data } });
       } else if (a.type === 'text') {
-        // Send code/text files as a text block with filename header
-        userContent.push({ type: 'text', text: `📄 File: ${a.name}\n\`\`\`\n${a.text}\n\`\`\`` });
+        userContent.push({ type: 'text', text: 'File: ' + a.name + '\n```\n' + a.text + '\n```' });
       }
     });
-    if (text) userContent.push({ type: 'text', text });
+    // Always add instruction text — if user typed nothing, ask MIND to read and summarize
+    const instruction = text || 'I have attached a file. Please read it carefully and let me know what it contains, any issues you notice, and what you can help me do with it.';
+    userContent.push({ type: 'text', text: instruction });
   } else {
     userContent = text;
   }
 
-  msgs.push({ role: 'user', content: userContent });
+  // For history: store only text, not full file content (saves tokens on future turns)
+  const historyContent = text || (pendingAttachments.length > 0 ? `📎 ${pendingAttachments.map(a=>a.name).join(', ')}` : '');
+  msgs.push({ role: 'user', content: historyContent });
 
   // Update title from first message
   if (msgs.length === 1) {
@@ -1110,7 +1111,8 @@ async function sendMessage() {
   const emptyState = document.getElementById('empty-state');
   if (emptyState) emptyState.remove();
 
-  appendMessageDOM('user', text || '📎 Attachment', true);
+  const displayLabel = text || (pendingAttachments.length > 0 ? '📎 ' + pendingAttachments.map(a=>a.name).join(', ') : '');
+  appendMessageDOM('user', displayLabel, true);
   input.value = '';
   input.style.height = 'auto';
   clearAttachments();
@@ -1158,11 +1160,11 @@ When the user uploads a file (HTML, JS, Python, etc.) and asks to edit, fix, or 
 - For regular text answers: use markdown. Be concise but complete.
 `;
 
-    // Build API messages (convert back to API format, strip artifacts from stored)
-    const apiMessages = msgs.map(m => ({
-      role: m.role,
-      content: m.content
-    }));
+    // Build API messages: history (text only) + current message with full file content
+    const historyMsgs = msgs.slice(0, -1)
+      .map(m => ({ role: m.role, content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) }))
+      .filter(m => m.content && m.content.trim() !== '');
+    const apiMessages = [...historyMsgs, { role: 'user', content: userContent }];
 
     const tools = webSearchEnabled ? [{ type: 'web_search_20250305', name: 'web_search' }] : undefined;
 
